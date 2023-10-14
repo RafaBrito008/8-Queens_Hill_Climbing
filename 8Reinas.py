@@ -1,10 +1,11 @@
 import tkinter as tk
-from tkinter import Button, Label, Frame
+from tkinter import Button, Label, Frame, messagebox
 import random
-from tkinter import messagebox
 
 DIMENSION = 8  # Dimensiones del tablero (8x8)
 SIZE = 50  # Tamaño de cada casilla en píxeles
+COLORS = {"white": "white", "black": "black", "queen": "red"}
+FONT_QUEEN = ("Arial", int(SIZE/1.5))
 
 class Chessboard(tk.Tk):
     def __init__(self):
@@ -14,6 +15,11 @@ class Chessboard(tk.Tk):
         self.board = [[None for _ in range(DIMENSION)] for _ in range(DIMENSION)]
         self.queens = []
         
+        self.setup_ui()
+        self.draw_board()
+        self.place_queens_randomly()
+
+    def setup_ui(self):
         # Crear el canvas para dibujar el tablero y las reinas
         self.canvas = tk.Canvas(self, width=SIZE*DIMENSION, height=SIZE*DIMENSION)
         self.canvas.pack(pady=20)
@@ -31,9 +37,6 @@ class Chessboard(tk.Tk):
         
         self.conflict_label = Label(self.control_frame, text="Conflictos: 0", font=("Arial", 12))
         self.conflict_label.grid(row=0, column=2, padx=20)
-        
-        self.draw_board()
-        self.place_queens_randomly()
 
     def update_conflict_label(self):
         positions = [int(self.canvas.coords(queen)[1] / SIZE - 0.5) for queen in self.queens]
@@ -97,37 +100,46 @@ class Chessboard(tk.Tk):
         # Aplica un paso del algoritmo Hill Climbing Estocástico
         positions = [int(self.canvas.coords(queen)[1] / SIZE - 0.5) for queen in self.queens]
         
-        neighbors = self.get_neighbors(positions)
         current_conflicts = self.count_conflicts(positions)
 
         # Verificar si hemos encontrado una solución
         if current_conflicts == 0:
             messagebox.showinfo("¡Éxito!", "El tablero está resuelto")
             return
-            
-        # Evaluar todos los vecinos y guardar aquellos que mejoren el estado actual
-        better_neighbors = []
-        for neighbor in neighbors:
-            if self.count_conflicts(neighbor) < current_conflicts:
-                better_neighbors.append(neighbor)
 
-        # Si no hay vecinos mejores, hemos encontrado una solución o un óptimo local
-        if not better_neighbors:
+        # Inicializa mejor conflicto con el actual
+        best_conflict = current_conflicts
+        best_position = None
+
+        for neighbor in self.get_neighbors(positions):
+            conflicts = self.count_conflicts(neighbor)
+
+            # Si encontramos una solución mejor, la guardamos
+            if conflicts < best_conflict:
+                best_conflict = conflicts
+                best_position = neighbor
+
+                # Si el conflicto es 0, ya encontramos la mejor solución
+                if best_conflict == 0:
+                    break
+
+        if best_position is None:
+            # No se encontró una mejor posición, por lo que es un óptimo local
             print("Optimo local alcanzado. Reintentando...")
             self.place_queens_randomly()
             return
 
-        # Seleccionar aleatoriamente uno de los vecinos mejores
-        next_positions = random.choice(better_neighbors)
-        
-        # Actualizar el tablero
-        for queen in self.queens:
-            self.canvas.delete(queen)
-        self.queens.clear()
-        for col, row in enumerate(next_positions):
-            self.place_queen(row, col)
+        # Si la mejor posición encontrada es diferente de la actual, actualizamos el tablero
+        if best_position != positions:
+            for queen in self.queens:
+                self.canvas.delete(queen)
+            self.queens.clear()
 
-            self.update_conflict_label()
+            for col, row in enumerate(best_position):
+                self.place_queen(row, col)
+
+        self.update_conflict_label()
+
 
 
 if __name__ == "__main__":
